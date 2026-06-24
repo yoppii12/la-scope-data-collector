@@ -1,0 +1,695 @@
+<title>LA-Scope — RPi4 デプロイ 詳細手順</title>
+<style>
+:root {
+  --ground:  #FFFFFF;
+  --text:    #171A31;
+  --accent:  #F05A22;
+  --mid:     #E9EAF2;
+  --muted:   #6B6E86;
+  --surf:    #F2F3F7;
+  --rail:    #D0D2DE;
+  --ok-bg:   #F0FAF4;
+  --ok-line: #4CAF50;
+  --f-ui:    system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --f-mono:  ui-monospace, 'SF Mono', 'Roboto Mono', 'Courier New', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--ground); color: var(--text); font-family: var(--f-ui); line-height: 1.7; font-size: 15px; }
+body { padding: 0; }
+
+.page { max-width: 800px; margin: 0 auto; padding: 56px 32px 100px; }
+
+/* ── Header ── */
+.hd-tag { font-family: var(--f-mono); font-size: 11px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 14px; }
+.hd-title { font-size: clamp(26px, 4.5vw, 38px); font-weight: 800; line-height: 1.15; letter-spacing: -0.4px; margin-bottom: 12px; }
+.hd-lead { font-size: 15px; color: #3d4060; max-width: 560px; margin-bottom: 28px; line-height: 1.7; }
+
+/* Time / difficulty chips */
+.meta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 48px; }
+.meta-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surf); border: 1px solid var(--mid);
+  border-radius: 20px; padding: 5px 13px;
+  font-size: 12.5px; color: var(--text);
+}
+.chip-icon { font-size: 13px; }
+
+/* Prep box */
+.prep-box { background: var(--surf); border-radius: 12px; padding: 22px 24px; margin-bottom: 52px; }
+.prep-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+.prep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.prep-item { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; }
+.prep-item .pi { font-size: 16px; line-height: 1.4; }
+@media (max-width: 560px) { .prep-grid { grid-template-columns: 1fr; } }
+
+/* ── Rail ── */
+.steps { position: relative; padding-left: 52px; }
+.steps::before {
+  content: ''; position: absolute;
+  left: 10px; top: 12px; bottom: 48px;
+  width: 1px; background: var(--rail);
+}
+
+/* Step wrapper */
+.step { position: relative; margin-bottom: 52px; }
+.step:last-child { margin-bottom: 0; }
+
+/* Marker */
+.step-marker {
+  position: absolute; left: -52px; top: 5px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--rail); background: var(--ground);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color .18s, background .18s; z-index: 2;
+}
+.step-marker:hover { border-color: var(--text); }
+.step-marker.done { background: var(--text); border-color: var(--text); }
+.step-marker .ck { display: none; color: #fff; font-size: 11px; font-weight: 700; }
+.step-marker.done .ck { display: block; }
+
+/* Step header */
+.step-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; cursor: pointer; }
+.step-num { font-family: var(--f-mono); font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.5px; flex-shrink: 0; }
+.step-title { font-size: 18px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.step.done .step-title { color: var(--muted); }
+
+/* Step subtitle (what / why) */
+.step-sub { font-size: 13.5px; color: var(--muted); margin-bottom: 18px; font-style: italic; padding-left: 0; }
+
+/* Body text */
+.step-body { font-size: 14.5px; color: #2e3150; }
+.step-body p { margin-bottom: 14px; }
+.step-body p:last-child { margin-bottom: 0; }
+
+/* Section label inside step */
+.body-label {
+  font-size: 11px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px;
+  margin: 20px 0 8px; display: block;
+}
+
+/* Code block */
+.code-wrap { position: relative; margin: 10px 0 14px; border-radius: 8px; background: var(--surf); border-left: 3px solid var(--text); overflow: hidden; }
+.code-wrap pre { padding: 13px 52px 13px 16px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.75; color: var(--text); overflow-x: auto; white-space: pre; }
+.cm { color: var(--muted); }
+.copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  padding: 3px 9px; border-radius: 5px;
+  border: 1px solid var(--mid); background: var(--ground);
+  font-family: var(--f-mono); font-size: 10px; font-weight: 600;
+  color: var(--muted); cursor: pointer; transition: all .12s; white-space: nowrap;
+}
+.copy-btn:hover { border-color: var(--text); color: var(--text); }
+.copy-btn.copied { background: var(--text); border-color: var(--text); color: #fff; }
+
+/* Inline code */
+code { font-family: var(--f-mono); font-size: 13px; background: var(--surf); border-radius: 4px; padding: 1px 5px; color: var(--text); }
+
+/* Success box */
+.ok-box {
+  background: var(--ok-bg); border-left: 3px solid var(--ok-line);
+  border-radius: 0 8px 8px 0; padding: 12px 16px;
+  margin: 14px 0; font-size: 13.5px;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.ok-icon { font-size: 16px; flex-shrink: 0; line-height: 1.6; }
+.ok-text { line-height: 1.65; color: #1a4228; }
+.ok-text strong { font-weight: 700; }
+
+/* Info / note box */
+.info-box {
+  background: var(--surf); border-left: 3px solid var(--mid);
+  border-radius: 0 8px 8px 0; padding: 12px 16px;
+  margin: 14px 0; font-size: 13.5px;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.info-icon { font-size: 15px; flex-shrink: 0; line-height: 1.6; }
+.info-text { line-height: 1.65; color: #2e3150; }
+
+/* Warning box — accent, used sparingly */
+.warn-box {
+  background: rgba(240,90,34,.05); border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0; padding: 12px 16px;
+  margin: 14px 0; font-size: 13.5px;
+  display: flex; gap: 10px; align-items: flex-start;
+}
+.warn-icon { font-size: 15px; flex-shrink: 0; line-height: 1.6; }
+.warn-text { line-height: 1.65; color: var(--text); }
+.warn-text strong { color: #c84819; }
+
+/* Output preview */
+.output-box {
+  background: #0e0f1a; border-radius: 8px; padding: 14px 16px;
+  margin: 10px 0; font-family: var(--f-mono); font-size: 12px;
+  line-height: 1.75; color: rgba(255,255,255,0.7);
+}
+.out-label { font-size: 10px; color: rgba(255,255,255,0.3); margin-bottom: 6px; display: block; letter-spacing: 1px; text-transform: uppercase; }
+.out-hi { color: #7fffb0; }
+.out-dim { color: rgba(255,255,255,0.35); }
+
+/* Divider */
+hr { border: none; border-top: 1px solid var(--mid); margin: 56px 0; }
+
+/* Troubleshooting */
+.ts-title { font-size: 19px; font-weight: 700; margin-bottom: 24px; }
+.ts-item { border: 1px solid var(--mid); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+.ts-q {
+  padding: 14px 18px; font-size: 14px; font-weight: 600;
+  cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+  background: var(--ground); transition: background .12s;
+}
+.ts-q:hover { background: var(--surf); }
+.ts-q .arr { font-size: 12px; color: var(--muted); transition: transform .18s; flex-shrink: 0; margin-left: 12px; }
+.ts-item.open .ts-q .arr { transform: rotate(180deg); }
+.ts-a { display: none; padding: 0 18px 16px; font-size: 13.5px; color: #2e3150; line-height: 1.7; border-top: 1px solid var(--mid); }
+.ts-item.open .ts-a { display: block; padding-top: 14px; }
+
+/* Completion banner */
+.done-banner { background: var(--text); border-radius: 12px; padding: 28px 32px; display: flex; gap: 20px; align-items: center; margin-top: 56px; }
+.done-icon { font-size: 32px; flex-shrink: 0; }
+.done-text h3 { font-size: 17px; font-weight: 700; color: #fff; margin-bottom: 5px; }
+.done-text p { font-size: 13.5px; color: rgba(255,255,255,.6); }
+.done-url { font-family: var(--f-mono); font-size: 13.5px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: 7px 14px; color: #fff; margin-top: 10px; display: inline-block; }
+
+/* Footer */
+.foot { margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--mid); display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) { .step-marker, .copy-btn, .ts-q .arr { transition: none; } }
+@media (max-width: 600px) {
+  .page { padding: 36px 20px 80px; }
+  .steps { padding-left: 44px; }
+  .step-marker { left: -44px; }
+  .steps::before { left: 8px; }
+}
+</style>
+
+<div class="page">
+
+  <!-- Header -->
+  <p class="hd-tag">LA-Scope Dataset Collector</p>
+  <h1 class="hd-title">Raspberry Pi 4<br>デプロイ 詳細手順</h1>
+  <p class="hd-lead">ターミナルが初めての方でも迷わないよう、1コマンドずつ丁寧に解説します。各ステップの丸印をクリックすると完了マークが付き、どこまで進んだか確認できます。</p>
+
+  <div class="meta-row">
+    <span class="meta-chip"><span class="chip-icon">⏱</span> 所要時間: 約20〜30分</span>
+    <span class="meta-chip"><span class="chip-icon">💻</span> Mac + Raspberry Pi 4</span>
+    <span class="meta-chip"><span class="chip-icon">📶</span> 同一 Wi-Fi 必須</span>
+  </div>
+
+  <!-- Prep -->
+  <div class="prep-box">
+    <p class="prep-title">始める前に確認するもの</p>
+    <div class="prep-grid">
+      <div class="prep-item"><span class="pi">🍎</span><span>Mac（このページを開いているパソコン）</span></div>
+      <div class="prep-item"><span class="pi">🟢</span><span>Raspberry Pi 4（電源が入っていること）</span></div>
+      <div class="prep-item"><span class="pi">📶</span><span>Wi-Fi ルーター（Mac と RPi4 が同じ Wi-Fi に繋がっていること）</span></div>
+      <div class="prep-item"><span class="pi">📷</span><span>RPi HQ カメラ（RPi4 に取り付け済み）</span></div>
+    </div>
+  </div>
+
+  <!-- ═══ STEPS ═══ -->
+  <div class="steps" id="steps">
+
+    <!-- STEP 01 -->
+    <div class="step" id="step-1">
+      <div class="step-marker" onclick="toggleStep(1)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(1)">
+        <span class="step-num">STEP 01</span>
+        <span class="step-title">Mac でターミナルを開く</span>
+      </div>
+      <p class="step-sub">ターミナルとは、コンピュータにテキストで命令を送るアプリです</p>
+      <div class="step-body">
+        <p>Mac のターミナルを開きます。</p>
+        <span class="body-label">手順</span>
+        <p>
+          キーボードの <code>Command ⌘</code> + <code>スペース</code> を同時に押して Spotlight を開き、<strong>「ターミナル」</strong>と入力して Enter を押します。
+        </p>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text">黒または白い画面に文字だけのウィンドウが開きます。これがターミナルです。<br>「見つからない場合」→ Finder → アプリケーション → ユーティリティ → ターミナル.app</div>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> 下のような画面が開き、カーソルが点滅している</div>
+        </div>
+        <div class="output-box">
+          <span class="out-label">ターミナルの画面例</span>
+          <span class="out-hi">yourname@MacBook-Pro</span> ~ %<span class="out-dim"> ← カーソルがここで点滅</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 02 -->
+    <div class="step" id="step-2">
+      <div class="step-marker" onclick="toggleStep(2)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(2)">
+        <span class="step-num">STEP 02</span>
+        <span class="step-title">フロントエンドをビルドする</span>
+      </div>
+      <p class="step-sub">アプリの画面ファイルを RPi4 が読める形に変換します</p>
+      <div class="step-body">
+        <p>ターミナルで以下の2つのコマンドを順番に実行します。1行ずつ貼り付けて Enter を押してください。</p>
+        <span class="body-label">① プロジェクトフォルダに移動する</span>
+        <div class="code-wrap">
+          <pre>cd /Users/yutaromaruta/00_projects/la-scope-data-collector/frontend</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'cd /Users/yutaromaruta/00_projects/la-scope-data-collector/frontend')">copy</button>
+        </div>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text"><code>cd</code> は「フォルダを移動する」命令です。Enter を押しても何も表示されなければ成功です。</div>
+        </div>
+
+        <span class="body-label">② ビルドを実行する</span>
+        <div class="code-wrap">
+          <pre>npm run build</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'npm run build')">copy</button>
+        </div>
+        <p>しばらく（10〜30秒）かかります。完了まで待ちましょう。</p>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> 以下のような文字が表示される</div>
+        </div>
+        <div class="output-box">
+          <span class="out-label">成功時の表示例</span>
+<span class="out-hi">✓ built in 2.86s</span>
+dist/index.html          <span class="out-dim">0.76 kB</span>
+dist/assets/index-xxx.js <span class="out-dim">478.34 kB</span></div>
+      </div>
+    </div>
+
+    <!-- STEP 03 -->
+    <div class="step" id="step-3">
+      <div class="step-marker" onclick="toggleStep(3)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(3)">
+        <span class="step-num">STEP 03</span>
+        <span class="step-title">RPi4 の IP アドレスを調べる</span>
+      </div>
+      <p class="step-sub">IP アドレスとは、ネットワーク上の「住所」です</p>
+      <div class="step-body">
+        <p>Mac から RPi4 に繋ぐためには、RPi4 の「住所（IPアドレス）」が必要です。以下のどちらかの方法で調べてください。</p>
+
+        <span class="body-label">方法 A：RPi4 の画面とキーボードが繋がっている場合</span>
+        <p>RPi4 のターミナルを開いて以下を入力します：</p>
+        <div class="code-wrap">
+          <pre>hostname -I</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'hostname -I')">copy</button>
+        </div>
+        <div class="output-box">
+          <span class="out-label">表示例</span>
+<span class="out-hi">192.168.1.105</span> 169.254.x.x <span class="out-dim">← 最初の数字が IP アドレス</span></div>
+
+        <span class="body-label">方法 B：Mac のターミナルから調べる</span>
+        <div class="code-wrap">
+          <pre>ping raspberrypi.local</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'ping raspberrypi.local')">copy</button>
+        </div>
+        <div class="output-box">
+          <span class="out-label">表示例（Ctrl+C で止める）</span>
+PING raspberrypi.local (<span class="out-hi">192.168.1.105</span>): 56 data bytes
+64 bytes from <span class="out-hi">192.168.1.105</span> ...</div>
+        <p>表示された <code>192.168.1.xxx</code> の形の数字が IP アドレスです。<strong>メモしておいてください。</strong></p>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text">以降の手順では <code>192.168.1.XXX</code> と書いてある部分を、メモした IP アドレスに置き換えて実行してください。</div>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば準備完了：</strong> <code>192.168.x.x</code> 形式の数字が確認できた</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 04 -->
+    <div class="step" id="step-4">
+      <div class="step-marker" onclick="toggleStep(4)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(4)">
+        <span class="step-num">STEP 04</span>
+        <span class="step-title">SSH で RPi4 に接続する</span>
+      </div>
+      <p class="step-sub">SSH とは、ネットワーク越しに RPi4 を遠隔操作する仕組みです</p>
+      <div class="step-body">
+        <p>Mac のターミナルから、RPi4 に「リモート接続」します。</p>
+        <div class="code-wrap">
+          <pre>ssh pi@192.168.1.XXX</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'ssh pi@192.168.1.XXX')">copy</button>
+        </div>
+        <p><code>192.168.1.XXX</code> は STEP 03 でメモした IP アドレスに変えてください。</p>
+
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text">初回接続時に <code>Are you sure you want to continue connecting (yes/no)?</code> と聞かれます。<code>yes</code> と入力して Enter を押してください。</div>
+        </div>
+
+        <span class="body-label">パスワードを入力する</span>
+        <p><code>pi@192.168.1.XXX's password:</code> と表示されたらパスワードを入力します。</p>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text">デフォルトのパスワードは <code>raspberry</code> です。<strong>入力してもターミナルには何も表示されません</strong>（セキュリティのため）。正しく入力して Enter を押してください。</div>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば接続成功：</strong> プロンプトが <code>pi@raspberrypi:~ $</code> に変わる</div>
+        </div>
+        <div class="output-box">
+          <span class="out-label">接続成功時の画面</span>
+Linux raspberrypi 6.x.x ...
+
+<span class="out-hi">pi@raspberrypi</span>:~ $<span class="out-dim"> ← この表示に変わればOK</span></div>
+      </div>
+    </div>
+
+    <!-- STEP 05 -->
+    <div class="step" id="step-5">
+      <div class="step-marker" onclick="toggleStep(5)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(5)">
+        <span class="step-num">STEP 05</span>
+        <span class="step-title">カメラを有効化する</span>
+      </div>
+      <p class="step-sub">RPi4 のカメラ機能をONにします（初回のみ必要）</p>
+      <div class="step-body">
+        <p>SSH 接続したままの状態（<code>pi@raspberrypi</code> と表示されている状態）で実行します。</p>
+        <div class="code-wrap">
+          <pre>sudo raspi-config</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'sudo raspi-config')">copy</button>
+        </div>
+        <p>青い画面のメニューが表示されます。キーボードの矢印キーで操作します：</p>
+        <div class="info-box">
+          <span class="info-icon">📋</span>
+          <div class="info-text">
+            <strong>操作手順：</strong><br>
+            1. <code>Interface Options</code> を選択 → Enter<br>
+            2. <code>Legacy Camera</code> または <code>Camera</code> を選択 → Enter<br>
+            3. <code>&lt;Yes&gt;</code> を選択 → Enter<br>
+            4. <code>&lt;Ok&gt;</code> → <code>Finish</code> を選択<br>
+            5. 再起動を聞かれたら <code>&lt;Yes&gt;</code>（再起動後に再度 SSH 接続が必要です）
+          </div>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> 設定が完了し、ターミナルのプロンプトに戻る（または RPi4 が再起動する）</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 06 -->
+    <div class="step" id="step-6">
+      <div class="step-marker" onclick="toggleStep(6)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(6)">
+        <span class="step-num">STEP 06</span>
+        <span class="step-title">Mac からファイルを転送する</span>
+      </div>
+      <p class="step-sub">アプリのファイル一式を RPi4 に送ります</p>
+      <div class="step-body">
+        <p>⚠ この手順は <strong>Mac のターミナル</strong>で実行します（RPi4 への SSH 接続は一旦閉じます）。</p>
+
+        <span class="body-label">① SSH 接続を閉じる</span>
+        <div class="code-wrap">
+          <pre>exit</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'exit')">copy</button>
+        </div>
+        <p>プロンプトが <code>yourname@MacBook-Pro</code> に戻ることを確認してください。</p>
+
+        <span class="body-label">② ファイルを転送する</span>
+        <p>以下のコマンドをコピーして、<code>192.168.1.XXX</code> をメモした IP アドレスに変えてから実行します。</p>
+        <div class="code-wrap">
+          <pre>rsync -av \
+  --exclude='venv' \
+  --exclude='node_modules' \
+  --exclude='backend/data' \
+  --exclude='.git' \
+  /Users/yutaromaruta/00_projects/la-scope-data-collector/ \
+  pi@192.168.1.XXX:/home/pi/la-scope-data-collector/</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'rsync -av \\\n  --exclude=\'venv\' \\\n  --exclude=\'node_modules\' \\\n  --exclude=\'backend/data\' \\\n  --exclude=\'.git\' \\\n  /Users/yutaromaruta/00_projects/la-scope-data-collector/ \\\n  pi@192.168.1.XXX:/home/pi/la-scope-data-collector/')">copy</button>
+        </div>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text"><code>rsync</code> は「差分だけを転送する」コマンドです。ファイル数によって数秒〜1分ほどかかります。再度 SSH パスワードを求められます（<code>raspberry</code>）。</div>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> ファイル名の一覧が流れてプロンプトに戻る</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 07 -->
+    <div class="step" id="step-7">
+      <div class="step-marker" onclick="toggleStep(7)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(7)">
+        <span class="step-num">STEP 07</span>
+        <span class="step-title">RPi4 で必要なソフトをインストールする</span>
+      </div>
+      <p class="step-sub">再び SSH 接続し、カメラと動画のパッケージを用意します</p>
+      <div class="step-body">
+        <span class="body-label">① RPi4 に再接続する</span>
+        <div class="code-wrap">
+          <pre>ssh pi@192.168.1.XXX</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'ssh pi@192.168.1.XXX')">copy</button>
+        </div>
+
+        <span class="body-label">② システムを更新してパッケージをインストールする</span>
+        <p>以下のコマンドを実行します。インターネット接続が必要です。数分かかる場合があります。</p>
+        <div class="code-wrap">
+          <pre>sudo apt update && sudo apt install -y python3-picamera2 ffmpeg</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'sudo apt update && sudo apt install -y python3-picamera2 ffmpeg')">copy</button>
+        </div>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text"><code>python3-picamera2</code> はカメラを操作するライブラリ、<code>ffmpeg</code> は動画を保存するソフトです。途中で <code>Y/n?</code> と聞かれたら <code>Y</code> を入力してください。</div>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> エラーなく完了してプロンプトに戻る</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 08 -->
+    <div class="step" id="step-8">
+      <div class="step-marker" onclick="toggleStep(8)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(8)">
+        <span class="step-num">STEP 08</span>
+        <span class="step-title">Python 仮想環境を構築する</span>
+      </div>
+      <p class="step-sub">アプリ専用の Python 実行環境を作ります</p>
+      <div class="step-body">
+        <p>SSH 接続したまま（<code>pi@raspberrypi</code> の状態）で順番に実行します。</p>
+
+        <span class="body-label">① プロジェクトフォルダに移動する</span>
+        <div class="code-wrap">
+          <pre>cd /home/pi/la-scope-data-collector</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'cd /home/pi/la-scope-data-collector')">copy</button>
+        </div>
+
+        <span class="body-label">② 仮想環境を作成する</span>
+        <div class="warn-box">
+          <span class="warn-icon">⚠</span>
+          <div class="warn-text"><strong><code>--system-site-packages</code> を必ず付けてください。</strong> このオプションがないとカメラが認識されず、映像が映りません。</div>
+        </div>
+        <div class="code-wrap">
+          <pre>python3 -m venv --system-site-packages venv</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'python3 -m venv --system-site-packages venv')">copy</button>
+        </div>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text">仮想環境とは「このアプリ専用の Python の部屋」です。他のソフトと干渉しないように分けて管理します。完了しても何も表示されません（正常です）。</div>
+        </div>
+
+        <span class="body-label">③ 仮想環境を有効にする</span>
+        <div class="code-wrap">
+          <pre>source venv/bin/activate</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'source venv/bin/activate')">copy</button>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> プロンプトの先頭に <code>(venv)</code> が付く</div>
+        </div>
+        <div class="output-box">
+          <span class="out-label">有効化後の表示</span>
+<span class="out-hi">(venv)</span> pi@raspberrypi:~/la-scope-data-collector $</div>
+
+        <span class="body-label">④ Python パッケージをインストールする</span>
+        <div class="code-wrap">
+          <pre>pip install -r backend/requirements.txt</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'pip install -r backend/requirements.txt')">copy</button>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> <code>Successfully installed ...</code> と表示される</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 09 -->
+    <div class="step" id="step-9">
+      <div class="step-marker" onclick="toggleStep(9)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(9)">
+        <span class="step-num">STEP 09</span>
+        <span class="step-title">自動起動サービスを登録する</span>
+      </div>
+      <p class="step-sub">RPi4 の電源を入れるだけでアプリが起動するように設定します</p>
+      <div class="step-body">
+        <p>SSH 接続したまま実行します。</p>
+        <span class="body-label">サービスを登録・起動する（4行まとめて実行可）</span>
+        <div class="code-wrap">
+          <pre>sudo cp /home/pi/la-scope-data-collector/la-scope.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable la-scope
+sudo systemctl start la-scope</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'sudo cp /home/pi/la-scope-data-collector/la-scope.service /etc/systemd/system/\nsudo systemctl daemon-reload\nsudo systemctl enable la-scope\nsudo systemctl start la-scope')">copy</button>
+        </div>
+
+        <span class="body-label">起動状態を確認する</span>
+        <div class="code-wrap">
+          <pre>sudo systemctl status la-scope</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'sudo systemctl status la-scope')">copy</button>
+        </div>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば成功：</strong> <code>Active: active (running)</code> と緑色で表示される</div>
+        </div>
+        <div class="output-box">
+          <span class="out-label">成功時の表示</span>
+● la-scope.service - LA-Scope Dataset Collector
+     Loaded: loaded (/etc/systemd/system/la-scope.service; enabled)
+     Active: <span class="out-hi">active (running)</span> since ...
+   Main PID: 1234 (uvicorn)</div>
+        <div class="info-box">
+          <span class="info-icon">💡</span>
+          <div class="info-text"><code>q</code> キーを押すと表示を閉じてプロンプトに戻れます。<br>次回から RPi4 の電源を入れるだけでアプリが自動起動します。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 10 -->
+    <div class="step" id="step-10">
+      <div class="step-marker" onclick="toggleStep(10)"><span class="ck">✓</span></div>
+      <div class="step-head" onclick="toggleStep(10)">
+        <span class="step-num">STEP 10</span>
+        <span class="step-title">ブラウザで動作確認する</span>
+      </div>
+      <p class="step-sub">Mac のブラウザからアプリにアクセスします</p>
+      <div class="step-body">
+        <p>Mac の Safari または Chrome を開き、アドレスバーに以下を入力します。</p>
+        <div class="code-wrap">
+          <pre>http://192.168.1.XXX:8000</pre>
+          <button class="copy-btn" onclick="copyCode(this, 'http://192.168.1.XXX:8000')">copy</button>
+        </div>
+        <p><code>192.168.1.XXX</code> は STEP 03 でメモした IP アドレスに変えてください。</p>
+        <div class="ok-box">
+          <span class="ok-icon">✓</span>
+          <div class="ok-text"><strong>こうなれば完了：</strong> LA-Scope のアプリ画面が表示され、顕微鏡カメラの映像が見える</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /steps -->
+
+  <!-- Done banner -->
+  <div class="done-banner">
+    <div class="done-icon">🔬</div>
+    <div class="done-text">
+      <h3>デプロイ完了！</h3>
+      <p>次回から RPi4 の電源を入れれば自動でアプリが起動します。</p>
+      <div class="done-url">http://&lt;RPi4 の IP アドレス&gt;:8000</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- Troubleshooting -->
+  <p class="ts-title">うまくいかないときは</p>
+
+  <div class="ts-item" id="ts-1">
+    <div class="ts-q" onclick="toggleTs(1)">
+      SSH 接続時に「Permission denied」と出る
+      <span class="arr">▼</span>
+    </div>
+    <div class="ts-a">
+      パスワードが違います。デフォルトは <code>raspberry</code> です（小文字）。入力中は画面に何も表示されません。<br><br>
+      パスワードを変更している場合は、変更後のパスワードを入力してください。
+    </div>
+  </div>
+
+  <div class="ts-item" id="ts-2">
+    <div class="ts-q" onclick="toggleTs(2)">
+      「ping raspberrypi.local」が反応しない
+      <span class="arr">▼</span>
+    </div>
+    <div class="ts-a">
+      RPi4 が同じ Wi-Fi に繋がっていない可能性があります。<br><br>
+      RPi4 の画面で Wi-Fi の接続状況を確認してください。また、RPi4 の画面で <code>hostname -I</code> を直接実行して IP を調べる方法も試してみてください。
+    </div>
+  </div>
+
+  <div class="ts-item" id="ts-3">
+    <div class="ts-q" onclick="toggleTs(3)">
+      アプリは開けるがカメラ映像が黒画面のまま
+      <span class="arr">▼</span>
+    </div>
+    <div class="ts-a">
+      以下の2つを確認してください。<br><br>
+      <strong>① カメラが有効になっているか（STEP 05 の操作）</strong><br>
+      SSH で接続して <code>sudo raspi-config</code> → Interface Options → Camera → Enable を確認。<br><br>
+      <strong>② カメラの接続不良</strong><br>
+      RPi4 の電源を切り、カメラケーブルを差し直してから再起動してみてください。
+    </div>
+  </div>
+
+  <div class="ts-item" id="ts-4">
+    <div class="ts-q" onclick="toggleTs(4)">
+      ブラウザで「このサイトにアクセスできません」と出る
+      <span class="arr">▼</span>
+    </div>
+    <div class="ts-a">
+      <strong>① アプリが起動しているか確認する</strong><br>
+      SSH で接続して <code>sudo systemctl status la-scope</code> を実行し、<code>active (running)</code> と表示されているか確認。<br><br>
+      <strong>② IP アドレスが変わっていないか確認する</strong><br>
+      STEP 03 の方法で IP を再確認してください。RPi4 を再起動すると IP が変わる場合があります。<br><br>
+      <strong>③ ポートが塞がれていないか確認する</strong><br>
+      SSH で接続して <code>sudo ufw allow 8000</code> を実行してみてください。
+    </div>
+  </div>
+
+  <div class="ts-item" id="ts-5">
+    <div class="ts-q" onclick="toggleTs(5)">
+      systemctl status で「failed」と表示される
+      <span class="arr">▼</span>
+    </div>
+    <div class="ts-a">
+      エラーの詳細を確認します。SSH で接続して以下を実行してください：<br><br>
+      <code>sudo journalctl -u la-scope -n 50</code><br><br>
+      表示されたエラーメッセージをコピーして、サポートに共有してください。多くの場合、STEP 08 の <code>--system-site-packages</code> が抜けている問題です。<br><br>
+      仮想環境を作り直す場合：<br>
+      <code>rm -rf venv</code><br>
+      <code>python3 -m venv --system-site-packages venv</code>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <span>LA-Scope Dataset Collector — RPi4 Deploy Guide</span>
+    <span>Powered by LAplust Inc.</span>
+  </footer>
+</div>
+
+<script>
+function toggleStep(n) {
+  const step = document.getElementById('step-' + n);
+  const marker = step.querySelector('.step-marker');
+  marker.classList.toggle('done');
+  step.classList.toggle('done');
+}
+
+function copyCode(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1800);
+  }).catch(() => { btn.textContent = 'copy'; });
+}
+
+function toggleTs(n) {
+  const item = document.getElementById('ts-' + n);
+  item.classList.toggle('open');
+}
+</script>
