@@ -35,9 +35,16 @@ export default function SettingsPage({ status }: Props) {
   const [settings, setSettings] = useState<AppSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<Toast>({ open: false, message: '', severity: 'success' })
+  const [intervalInput, setIntervalInput] = useState('')
+  const [maxShotsInput, setMaxShotsInput] = useState('')
 
   useEffect(() => {
-    api.getSettings().then(s => setSettings(s as AppSettings))
+    api.getSettings().then(s => {
+      const loaded = s as AppSettings
+      setSettings(loaded)
+      setIntervalInput(String(loaded.interval.interval_seconds))
+      setMaxShotsInput(String(loaded.interval.max_shots))
+    })
   }, [])
 
   const patch = (section: keyof AppSettings, key: string, value: unknown) =>
@@ -133,16 +140,32 @@ export default function SettingsPage({ status }: Props) {
                 <TextField
                   fullWidth size="small" label="撮影間隔（秒）"
                   type="number" inputProps={{ min: 1, max: 3600 }}
-                  value={settings.interval.interval_seconds}
-                  onChange={e => patch('interval', 'interval_seconds', Number(e.target.value))}
+                  value={intervalInput}
+                  onChange={e => setIntervalInput(e.target.value)}
+                  onBlur={() => {
+                    const num = parseInt(intervalInput, 10)
+                    if (!isNaN(num) && num >= 1) {
+                      patch('interval', 'interval_seconds', num)
+                    } else {
+                      setIntervalInput(String(settings.interval.interval_seconds))
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth size="small" label="最大撮影枚数（0 = 無制限）"
                   type="number" inputProps={{ min: 0 }}
-                  value={settings.interval.max_shots}
-                  onChange={e => patch('interval', 'max_shots', Number(e.target.value))}
+                  value={maxShotsInput}
+                  onChange={e => setMaxShotsInput(e.target.value)}
+                  onBlur={() => {
+                    const num = parseInt(maxShotsInput, 10)
+                    if (!isNaN(num) && num >= 0) {
+                      patch('interval', 'max_shots', num)
+                    } else {
+                      setMaxShotsInput(String(settings.interval.max_shots))
+                    }
+                  }}
                 />
               </Grid>
             </Grid>
