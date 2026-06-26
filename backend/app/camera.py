@@ -113,6 +113,7 @@ class RPiCamera:
         }
         self._frame: Optional[bytes] = None
         self._lock = threading.Lock()
+        self._cam_lock = threading.Lock()
         self._running = False
         self._thread: Optional[threading.Thread] = None
 
@@ -137,8 +138,9 @@ class RPiCamera:
     def _loop(self):
         while self._running:
             try:
-                buf = io.BytesIO()
-                self.picam.capture_file(buf, format="jpeg")
+                with self._cam_lock:
+                    buf = io.BytesIO()
+                    self.picam.capture_file(buf, format="jpeg")
                 with self._lock:
                     self._frame = buf.getvalue()
             except Exception:
@@ -151,8 +153,9 @@ class RPiCamera:
 
     def capture_image(self, filepath: str) -> bool:
         try:
-            still_config = self.picam.create_still_configuration()
-            self.picam.switch_mode_and_capture_file(still_config, filepath)
+            with self._cam_lock:
+                still_config = self.picam.create_still_configuration()
+                self.picam.switch_mode_and_capture_file(still_config, filepath)
             return True
         except Exception:
             return False

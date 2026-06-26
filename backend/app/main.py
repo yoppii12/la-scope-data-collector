@@ -135,20 +135,24 @@ class IntervalRequest(BaseModel):
 async def _interval_loop(sample_id: str, interval_secs: int, max_shots: int):
     count = 0
     while interval_running and (max_shots == 0 or count < max_shots):
-        date_str, fname = storage.make_filename(sample_id, "jpg")
-        folder = storage.ensure_date_dir(date_str)
-        filepath = str(folder / fname)
-        await asyncio.to_thread(camera.capture_image, filepath)
-        meta = {
-            "filename": fname,
-            "captured_at": datetime.now().astimezone().isoformat(),
-            "sample_id": sample_id,
-            "note": "interval",
-            "camera_settings": camera.settings.copy(),
-        }
-        (folder / fname.replace(".jpg", ".json")).write_text(json.dumps(meta, indent=2))
-        count += 1
-        await _broadcast()
+        try:
+            date_str, fname = storage.make_filename(sample_id, "jpg")
+            folder = storage.ensure_date_dir(date_str)
+            filepath = str(folder / fname)
+            ok = await asyncio.to_thread(camera.capture_image, filepath)
+            if ok:
+                meta = {
+                    "filename": fname,
+                    "captured_at": datetime.now().astimezone().isoformat(),
+                    "sample_id": sample_id,
+                    "note": "interval",
+                    "camera_settings": camera.settings.copy(),
+                }
+                (folder / fname.replace(".jpg", ".json")).write_text(json.dumps(meta, indent=2))
+                count += 1
+                await _broadcast()
+        except Exception:
+            pass
         await asyncio.sleep(interval_secs)
 
 
