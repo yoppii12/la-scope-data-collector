@@ -336,6 +336,25 @@ async def _broadcast():
 
 
 def _get_ip() -> str:
+    # Direct interface query (Linux/RPi) — works even without internet
+    try:
+        import fcntl
+        import struct
+        for ifname in ("wlan0", "eth0", "wlan1"):
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                ip = socket.inet_ntoa(fcntl.ioctl(
+                    s.fileno(), 0x8915,
+                    struct.pack('256s', ifname[:15].encode())
+                )[20:24])
+                s.close()
+                if not ip.startswith("127."):
+                    return ip
+            except Exception:
+                continue
+    except ImportError:
+        pass
+    # Fallback: routing-based (works on Mac/Windows dev environment)
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(("8.8.8.8", 80))
@@ -343,13 +362,6 @@ def _get_ip() -> str:
         s.close()
         if not ip.startswith("127."):
             return ip
-    except Exception:
-        pass
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
-            ip = info[4][0]
-            if not ip.startswith("127."):
-                return ip
     except Exception:
         pass
     return "127.0.0.1"
