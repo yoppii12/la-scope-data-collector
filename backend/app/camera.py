@@ -154,7 +154,10 @@ class RPiCamera:
     def capture_image(self, filepath: str) -> bool:
         try:
             with self._cam_lock:
-                self.picam.capture_file(filepath)
+                buf = io.BytesIO()
+                self.picam.capture_file(buf, format="jpeg")
+            with open(filepath, "wb") as f:
+                f.write(buf.getvalue())
             return True
         except Exception:
             return False
