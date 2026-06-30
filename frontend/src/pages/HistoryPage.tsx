@@ -178,12 +178,50 @@ function FolderCard({ folder }: FolderCardProps) {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, backgroundColor: '#06071a', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
-          {preview?.type === 'image' && (
-            <img src={api.fileUrl(preview.path)} alt={preview.name} style={{ maxWidth: '100%', maxHeight: '72vh', objectFit: 'contain' }} />
-          )}
-          {preview?.type === 'video' && (
-            <video src={api.fileUrl(preview.path)} controls style={{ maxWidth: '100%', maxHeight: '72vh' }} />
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ backgroundColor: '#06071a', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 240 }}>
+            {preview?.type === 'image' && (
+              <img src={api.fileUrl(preview.path)} alt={preview.name} style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain' }} />
+            )}
+            {preview?.type === 'video' && (
+              <video src={api.fileUrl(preview.path)} controls style={{ maxWidth: '100%', maxHeight: '60vh' }} />
+            )}
+          </Box>
+          {preview?.metadata && (
+            <Box sx={{ p: 2, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 1.5 }}>
+                メタデータ
+              </Typography>
+              <Grid container spacing={1.5}>
+                {[
+                  { label: 'サンプルID', value: preview.metadata.sample_id as string || '—' },
+                  { label: '撮影日時', value: preview.metadata.captured_at ? new Date(preview.metadata.captured_at as string).toLocaleString('ja-JP') : '—' },
+                  { label: 'ノート', value: preview.metadata.note as string || '—' },
+                  { label: '観察条件', value: preview.metadata.condition as string || '—' },
+                ].map(({ label, value }) => (
+                  <Grid item xs={6} sm={3} key={label}>
+                    <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary', mb: 0.25 }}>{label}</Typography>
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#171A31' }}>{value}</Typography>
+                  </Grid>
+                ))}
+              </Grid>
+              {!!(preview.metadata.camera_settings) && (
+                <>
+                  <Divider sx={{ my: 1.5 }} />
+                  <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8, mb: 1.5 }}>
+                    カメラ設定
+                  </Typography>
+                  <Grid container spacing={1.5}>
+                    {Object.entries(preview.metadata.camera_settings as Record<string, unknown>).map(([key, value]) => (
+                      <Grid item xs={6} sm={3} key={key}>
+                        <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary', mb: 0.25 }}>{key}</Typography>
+                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#171A31', fontFamily: 'monospace' }}>{`${value}`}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </>
+              )}
+            </Box>
           )}
         </DialogContent>
       </Dialog>
