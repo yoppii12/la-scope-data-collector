@@ -1,0 +1,471 @@
+<title>RPi4 アクセスポイント設定ガイド</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ground: #FFFFFF;
+    --main: #171A31;
+    --accent: #F05A22;
+    --surface: #F4F5F8;
+    --border: #DDE0EA;
+    --text-sub: #5C607A;
+    --success-bg: #EDF7F0;
+    --success-border: #2D9A56;
+    --warn-bg: #FFF5F0;
+    --warn-border: #F05A22;
+    --code-bg: #1A1D2E;
+    --code-text: #C8CCDF;
+    --code-prompt: #4A90D9;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    background: var(--ground);
+    color: var(--main);
+    line-height: 1.7;
+    font-size: 15px;
+    padding-bottom: 60px;
+  }
+
+  .page-header {
+    background: var(--main);
+    padding: 36px 40px 32px;
+    border-bottom: 3px solid var(--accent);
+  }
+  .page-header .label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.45);
+    margin-bottom: 8px;
+  }
+  .page-header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFFFFF;
+    line-height: 1.35;
+  }
+  .page-header .meta {
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.45);
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .overview {
+    background: var(--surface);
+    border-left: 3px solid var(--main);
+    padding: 20px 24px;
+    margin: 32px 0 8px;
+    border-radius: 0 6px 6px 0;
+  }
+  .overview p {
+    font-size: 14px;
+    color: var(--main);
+    line-height: 1.75;
+  }
+
+  .network-diagram {
+    background: var(--main);
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin: 24px 0 32px;
+    font-family: "SFMono-Regular", "Consolas", monospace;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    line-height: 2;
+    overflow-x: auto;
+  }
+  .network-diagram .highlight { color: #FFFFFF; font-weight: 600; }
+  .network-diagram .accent-text { color: var(--accent); }
+
+  .section-title {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    margin: 36px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .step {
+    margin-bottom: 28px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--main);
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .step-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--main);
+  }
+  .step-body {
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .step-body p {
+    font-size: 14px;
+    color: var(--main);
+    line-height: 1.75;
+  }
+
+  .code-block {
+    background: var(--code-bg);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .code-block-inner {
+    padding: 14px 16px;
+    overflow-x: auto;
+    position: relative;
+  }
+  .code-block pre {
+    font-family: "SFMono-Regular", "Consolas", "Menlo", monospace;
+    font-size: 13px;
+    color: var(--code-text);
+    line-height: 1.7;
+    white-space: pre;
+  }
+  .code-block pre .prompt { color: var(--code-prompt); }
+  .code-block pre .cmd { color: #E8EAF0; }
+  .code-block pre .comment { color: #4A4F6A; }
+  .code-block pre .output { color: #7A8099; }
+  .code-block pre .success-output { color: #5DBF7E; }
+  .copy-btn {
+    display: block;
+    width: 100%;
+    padding: 7px 16px;
+    background: rgba(255,255,255,0.04);
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    color: rgba(255,255,255,0.35);
+    font-size: 11.5px;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.02em;
+    transition: background 0.15s, color 0.15s;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.65); }
+  .copy-btn.copied { color: #5DBF7E; }
+
+  .success-box {
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    border-left-width: 3px;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    color: #1A5C30;
+  }
+  .success-box .success-label {
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .warn-box {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-left-width: 3px;
+    border-radius: 6px;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    color: var(--main);
+  }
+  .warn-box .warn-label {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+  }
+  .info-card .info-label {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-sub);
+    margin-bottom: 6px;
+  }
+  .info-card .info-value {
+    font-family: "SFMono-Regular", "Consolas", monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--main);
+  }
+
+  .notice {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 32px 0 0;
+    font-size: 13.5px;
+    color: var(--text-sub);
+    line-height: 1.75;
+  }
+  .notice strong { color: var(--main); }
+
+  @media (max-width: 480px) {
+    .page-header { padding: 28px 20px 24px; }
+    .container { padding: 0 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .copy-btn { transition: none; }
+  }
+</style>
+
+<div class="page-header">
+  <div class="container">
+    <div class="label">LA-Scope Dataset Collector — Setup Guide</div>
+    <h1>RPi4 アクセスポイント設定ガイド<br>Wi-Fiルーターなしで接続する</h1>
+    <div class="meta">対象環境：Raspberry Pi 4 / Raspberry Pi OS Bookworm　|　作成日：2026-06-30</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="overview">
+    <p>このガイドでは、RPi4 自身がWi-Fiを発信するアクセスポイントとして動作するよう設定します。設定後は外部のWi-Fiルーターが不要になり、PCをRPi4の「LA-Scope」Wi-Fiに繋ぐだけでアプリにアクセスできます。</p>
+  </div>
+
+  <div class="network-diagram">
+    <span class="accent-text">設定後の接続構成</span><br><br>
+    <span class="highlight">PC（Wi-Fi）</span><br>
+    &nbsp;&nbsp;&nbsp;↕ 直接接続（LA-Scope Wi-Fi）<br>
+    <span class="highlight">RPi4（アクセスポイントとして動作）</span><br><br>
+    <span class="comment">アクセスURL: http://10.42.0.1:8000</span>
+  </div>
+
+  <div class="section-title">接続情報</div>
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-label">SSID（Wi-Fi名）</div>
+      <div class="info-value">LA-Scope</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">パスワード</div>
+      <div class="info-value">lascope1234</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">RPi4のIPアドレス</div>
+      <div class="info-value">10.42.0.1</div>
+    </div>
+    <div class="info-card">
+      <div class="info-label">アクセスURL</div>
+      <div class="info-value">http://10.42.0.1:8000</div>
+    </div>
+  </div>
+
+  <div class="section-title">設定手順</div>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div class="step-title">RPi4 に SSH接続する（現在のWi-Fi経由）</div>
+    </div>
+    <div class="step-body">
+      <p>まず現在のWi-Fi環境で RPi4 に接続します。これが最後のWi-Fi経由でのSSH接続になります。</p>
+      <div class="code-block">
+        <div class="code-block-inner">
+          <pre><span class="prompt">$</span> <span class="cmd">ssh pi@192.168.10.118</span></pre>
+        </div>
+        <button class="copy-btn" data-copy="ssh pi@192.168.10.118">コピー</button>
+      </div>
+      <div class="success-box">
+        <div class="success-label">こうなれば成功</div>
+        プロンプトが <code>pi@raspberrypi260624:~ $</code> に変わればOKです。
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div class="step-title">ホットスポットを作成して自動起動設定を行う</div>
+    </div>
+    <div class="step-body">
+      <p>以下のコマンドを実行します。ホットスポットの作成と、再起動後も自動で有効になる設定を一括で行います。</p>
+      <div class="warn-box">
+        <div class="warn-label">注意</div>
+        このコマンドを実行すると RPi4 のWi-Fiが切り替わるため、<strong>SSH接続が切断されます</strong>。これは正常な動作です。
+      </div>
+      <div class="code-block">
+        <div class="code-block-inner">
+          <pre><span class="prompt">pi@raspberrypi260624:~ $</span> <span class="cmd">sudo nmcli device wifi hotspot ifname wlan0 ssid "LA-Scope" password "lascope1234" && sudo nmcli connection modify Hotspot connection.autoconnect yes</span></pre>
+        </div>
+        <button class="copy-btn" data-copy='sudo nmcli device wifi hotspot ifname wlan0 ssid "LA-Scope" password "lascope1234" && sudo nmcli connection modify Hotspot connection.autoconnect yes'>コピー</button>
+      </div>
+      <div class="success-box">
+        <div class="success-label">こうなれば成功</div>
+        <code>Device 'wlan0' successfully activated...</code> と表示され、その後SSH接続が切れればOKです。
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div class="step-title">PC を「LA-Scope」Wi-Fi に接続する</div>
+    </div>
+    <div class="step-body">
+      <p>PCのWi-Fi設定を開き、「LA-Scope」というネットワークに接続します。</p>
+      <div class="info-grid">
+        <div class="info-card">
+          <div class="info-label">ネットワーク名（SSID）</div>
+          <div class="info-value">LA-Scope</div>
+        </div>
+        <div class="info-card">
+          <div class="info-label">パスワード</div>
+          <div class="info-value">lascope1234</div>
+        </div>
+      </div>
+      <div class="success-box">
+        <div class="success-label">こうなれば成功</div>
+        Wi-Fiが「LA-Scope」に接続済みと表示されればOKです。
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div class="step-title">ブラウザでアプリにアクセスする</div>
+    </div>
+    <div class="step-body">
+      <p>ブラウザで以下のURLを開きます。</p>
+      <div class="code-block">
+        <div class="code-block-inner">
+          <pre><span class="cmd">http://10.42.0.1:8000</span></pre>
+        </div>
+        <button class="copy-btn" data-copy="http://10.42.0.1:8000">コピー</button>
+      </div>
+      <div class="success-box">
+        <div class="success-label">こうなれば成功</div>
+        LA-Scope のカメラ画面が表示されればデプロイ完了です。
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">5</div>
+      <div class="step-title">（任意）新しいIPアドレスでSSH接続する</div>
+    </div>
+    <div class="step-body">
+      <p>今後 RPi4 に SSH接続する場合は、新しいIPアドレスを使います。</p>
+      <div class="code-block">
+        <div class="code-block-inner">
+          <pre><span class="prompt">$</span> <span class="cmd">ssh pi@10.42.0.1</span></pre>
+        </div>
+        <button class="copy-btn" data-copy="ssh pi@10.42.0.1">コピー</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- トラブルシューティング -->
+  <div class="section-title">トラブルシューティング</div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#5C607A">?</div>
+      <div class="step-title">「LA-Scope」Wi-Fiが表示されない</div>
+    </div>
+    <div class="step-body">
+      <p>RPi4 を再起動してから再度Wi-Fiを確認してください。</p>
+      <div class="code-block">
+        <div class="code-block-inner">
+          <pre><span class="comment"># RPi4のモニター・キーボードが使える場合</span>
+<span class="prompt">pi@raspberrypi260624:~ $</span> <span class="cmd">sudo reboot</span></pre>
+        </div>
+        <button class="copy-btn" data-copy="sudo reboot">コピー</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num" style="background:#5C607A">?</div>
+      <div class="step-title">ホットスポットの設定を削除して元に戻したい</div>
+    </div>
+    <div class="step-body">
+      <p>RPi4 にモニター・キーボードを繋ぐか、旧Wi-Fi経由でSSH接続できる環境で実行してください。</p>
+      <div class="code-block">
+        <div class="code-block-inner">
+          <pre><span class="comment"># ホットスポット接続を削除</span>
+<span class="prompt">pi@raspberrypi260624:~ $</span> <span class="cmd">sudo nmcli connection delete Hotspot</span>
+
+<span class="comment"># 元のWi-Fiに再接続</span>
+<span class="prompt">pi@raspberrypi260624:~ $</span> <span class="cmd">sudo nmcli device wifi connect "元のSSID" password "元のパスワード"</span></pre>
+        </div>
+        <button class="copy-btn" data-copy="sudo nmcli connection delete Hotspot">コピー</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="notice">
+    <strong>注意事項：</strong> RPi4 をアクセスポイントモードで動作させている間、RPi4 自身はインターネットに接続できません。ソフトウェアのアップデートやパッケージのインストールが必要な場合は、一時的にホットスポットを停止して元のWi-Fiに戻す必要があります。
+  </div>
+
+</div>
+
+<script>
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.getAttribute('data-copy')
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'コピーしました'
+        btn.classList.add('copied')
+        setTimeout(() => {
+          btn.textContent = 'コピー'
+          btn.classList.remove('copied')
+        }, 1800)
+      })
+    })
+  })
+</script>
