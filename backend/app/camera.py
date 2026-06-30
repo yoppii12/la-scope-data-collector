@@ -154,8 +154,7 @@ class RPiCamera:
     def capture_image(self, filepath: str) -> bool:
         try:
             with self._cam_lock:
-                still_config = self.picam.create_still_configuration()
-                self.picam.switch_mode_and_capture_file(still_config, filepath)
+                self.picam.capture_file(filepath)
             return True
         except Exception:
             return False
