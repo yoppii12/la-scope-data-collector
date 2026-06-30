@@ -215,7 +215,7 @@ export default function SettingsPage({ status }: Props) {
               {[
                 { label: 'IPアドレス', value: status?.network?.ip ?? '---' },
                 { label: 'ホスト名', value: status?.network?.hostname ?? '---' },
-                { label: 'アクセスURL', value: `http://${status?.network?.ip ?? '---'}:5000` },
+                { label: 'アクセスURL', value: `http://${status?.network?.ip ?? '---'}:8000` },
               ].map(({ label, value }) => (
                 <Grid item xs={12} sm={4} key={label}>
                   <Box>
