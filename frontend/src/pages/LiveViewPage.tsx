@@ -8,7 +8,7 @@ import {
 } from '@mui/icons-material'
 import { api } from '../api/client'
 import StorageBar from '../components/StorageBar'
-import { StatusUpdate } from '../types'
+import { AppSettings, StatusUpdate } from '../types'
 
 interface Props {
   status: StatusUpdate | null
@@ -18,6 +18,15 @@ type Toast = { open: boolean; message: string; severity: 'success' | 'error' }
 
 export default function LiveViewPage({ status }: Props) {
   const [sampleId, setSampleId] = useState('')
+
+  useEffect(() => {
+    api.getSettings().then(s => {
+      const loaded = s as AppSettings
+      if (loaded.annotation.default_sample_id) {
+        setSampleId(loaded.annotation.default_sample_id)
+      }
+    })
+  }, [])
   const [showGrid, setShowGrid] = useState(false)
   const [showPeaking, setShowPeaking] = useState(false)
   const [lastCapture, setLastCapture] = useState<string | null>(null)

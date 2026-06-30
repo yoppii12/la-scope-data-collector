@@ -85,11 +85,13 @@ async def capture_photo(req: CaptureRequest):
     if not ok:
         raise HTTPException(500, "Capture failed")
 
+    annotation = load_settings().get("annotation", {})
     meta = {
         "filename": fname,
         "captured_at": datetime.now().astimezone().isoformat(),
         "sample_id": req.sample_id,
-        "note": "",
+        "note": annotation.get("default_note", ""),
+        "condition": annotation.get("default_condition", ""),
         "camera_settings": camera.settings.copy(),
     }
     json_path = folder / fname.replace(".jpg", ".json")
@@ -142,11 +144,13 @@ async def _interval_loop(sample_id: str, interval_secs: int, max_shots: int):
             filepath = str(folder / fname)
             ok = await asyncio.to_thread(camera.capture_image, filepath)
             if ok:
+                annotation = load_settings().get("annotation", {})
                 meta = {
                     "filename": fname,
                     "captured_at": datetime.now().astimezone().isoformat(),
                     "sample_id": sample_id,
-                    "note": "interval",
+                    "note": annotation.get("default_note", ""),
+                    "condition": annotation.get("default_condition", ""),
                     "camera_settings": camera.settings.copy(),
                 }
                 (folder / fname.replace(".jpg", ".json")).write_text(json.dumps(meta, indent=2))
