@@ -15,6 +15,18 @@ except ImportError:
 from PIL import Image, ImageDraw
 
 
+MOCK_RESOLUTIONS = ["640x480", "1280x720", "1920x1080"]
+RPI_RESOLUTIONS = ["640x480", "1280x720", "1920x1080", "2028x1520", "4056x3040"]
+
+
+def _parse_resolution(res: str) -> tuple[int, int]:
+    try:
+        w, h = res.split("x")
+        return int(w), int(h)
+    except Exception:
+        return 1280, 720
+
+
 class MockCamera:
     """Development mock — generates a test pattern without RPi hardware."""
 
@@ -33,7 +45,12 @@ class MockCamera:
         self._recording_path: Optional[str] = None
         self._frame_count = 0
 
-    def start(self):
+    def get_supported_resolutions(self) -> list[str]:
+        return MOCK_RESOLUTIONS
+
+    def start(self, initial_settings: dict = None):
+        if initial_settings:
+            self.settings.update(initial_settings)
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
@@ -106,7 +123,7 @@ class RPiCamera:
         self.picam: Optional[Picamera2] = None
         self.is_recording = False
         self.settings = {
-            "resolution": "4056x3040",
+            "resolution": "1920x1080",
             "framerate": 30,
             "exposure": "auto",
             "white_balance": "auto",
@@ -117,10 +134,16 @@ class RPiCamera:
         self._running = False
         self._thread: Optional[threading.Thread] = None
 
-    def start(self):
+    def get_supported_resolutions(self) -> list[str]:
+        return RPI_RESOLUTIONS
+
+    def start(self, initial_settings: dict = None):
+        if initial_settings:
+            self.settings.update(initial_settings)
+        w, h = _parse_resolution(self.settings.get("resolution", "1920x1080"))
         self.picam = Picamera2()
         config = self.picam.create_preview_configuration(
-            main={"size": (1280, 960), "format": "RGB888"},
+            main={"size": (w, h), "format": "RGB888"},
         )
         self.picam.configure(config)
         self.picam.start()
@@ -183,12 +206,28 @@ class RPiCamera:
     def apply_settings(self, settings: dict):
         if not self.picam:
             return
+        new_res = settings.get("resolution", self.settings.get("resolution"))
+        if new_res and new_res != self.settings.get("resolution"):
+            self._running = False
+            if self._thread:
+                self._thread.join(timeout=2)
+            self.picam.stop()
+            w, h = _parse_resolution(new_res)
+            config = self.picam.create_preview_configuration(
+                main={"size": (w, h), "format": "RGB888"},
+            )
+            self.picam.configure(config)
+            self.picam.start()
+            time.sleep(2)
+            self._running = True
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
         controls = {}
         if settings.get("exposure") == "auto":
             controls["AeEnable"] = True
         else:
             controls["AeEnable"] = False
-            controls["ExposureTime"] = int(settings["exposure"])
+            controls["ExposureTime"] = int(settings.get("exposure", "1000"))
         if settings.get("white_balance") == "auto":
             controls["AwbEnable"] = True
         else:

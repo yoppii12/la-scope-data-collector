@@ -28,7 +28,8 @@ FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
 async def lifespan(app: FastAPI):
     global camera
     camera = cam_module.create_camera()
-    camera.start()
+    settings = load_settings()
+    camera.start(initial_settings=settings.get("camera", {}))
     yield
     global interval_running
     interval_running = False
@@ -250,6 +251,13 @@ async def csv_all():
     data = storage.export_csv()
     return Response(data, media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=la-scope-all.csv"})
+
+
+# ---------- Camera capabilities ----------
+
+@app.get("/api/camera/resolutions")
+async def get_resolutions():
+    return {"resolutions": camera.get_supported_resolutions()}
 
 
 # ---------- Settings ----------

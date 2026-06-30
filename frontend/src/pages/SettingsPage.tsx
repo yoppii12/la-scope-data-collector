@@ -8,7 +8,7 @@ import { api } from '../api/client'
 import StorageBar from '../components/StorageBar'
 import { AppSettings, StatusUpdate } from '../types'
 
-const RESOLUTIONS = ['640x480', '1280x720', '1920x1080', '2028x1520', '4056x3040']
+const DEFAULT_RESOLUTIONS = ['640x480', '1280x720', '1920x1080']
 const FRAMERATES = [10, 15, 24, 30, 60]
 const WB_MODES = [
   { value: 'auto', label: 'オート' },
@@ -37,6 +37,7 @@ export default function SettingsPage({ status }: Props) {
   const [toast, setToast] = useState<Toast>({ open: false, message: '', severity: 'success' })
   const [intervalInput, setIntervalInput] = useState('')
   const [maxShotsInput, setMaxShotsInput] = useState('')
+  const [resolutions, setResolutions] = useState<string[]>(DEFAULT_RESOLUTIONS)
 
   useEffect(() => {
     api.getSettings().then(s => {
@@ -45,6 +46,10 @@ export default function SettingsPage({ status }: Props) {
       setIntervalInput(String(loaded.interval.interval_seconds))
       setMaxShotsInput(String(loaded.interval.max_shots))
     })
+    fetch('/api/camera/resolutions')
+      .then(r => r.json())
+      .then(d => { if (d.resolutions?.length) setResolutions(d.resolutions) })
+      .catch(() => {})
   }, [])
 
   const patch = (section: keyof AppSettings, key: string, value: unknown) =>
@@ -90,7 +95,7 @@ export default function SettingsPage({ status }: Props) {
                     value={settings.camera.resolution} label="解像度"
                     onChange={e => patch('camera', 'resolution', e.target.value)}
                   >
-                    {RESOLUTIONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                    {resolutions.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
