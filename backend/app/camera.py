@@ -147,6 +147,9 @@ class RPiCamera:
         )
         self.picam.configure(config)
         self.picam.start()
+        fps = int(self.settings.get("framerate", 30))
+        frame_duration = int(1_000_000 / fps)
+        self.picam.set_controls({"FrameDurationLimits": (frame_duration, frame_duration)})
         time.sleep(2)
         self._running = True
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -168,7 +171,7 @@ class RPiCamera:
                     self._frame = buf.getvalue()
             except Exception:
                 pass
-            time.sleep(1 / 30)
+            time.sleep(1 / int(self.settings.get("framerate", 30)))
 
     def get_frame(self) -> Optional[bytes]:
         with self._lock:
@@ -232,6 +235,9 @@ class RPiCamera:
             controls["AwbEnable"] = True
         else:
             controls["AwbEnable"] = False
+        new_fps = int(settings.get("framerate", self.settings.get("framerate", 30)))
+        frame_duration = int(1_000_000 / new_fps)
+        controls["FrameDurationLimits"] = (frame_duration, frame_duration)
         self.picam.set_controls(controls)
         self.settings.update(settings)
 
