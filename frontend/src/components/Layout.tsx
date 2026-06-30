@@ -31,15 +31,8 @@ export default function Layout({ children, status }: Props) {
   const currentLabel = NAV.find(n => n.path === location.pathname)?.label ?? ''
 
   const DrawerContent = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', pt: 1 }}>
-      <Box sx={{ px: 2.5, py: 2 }}>
-        <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1.5, mb: 0.25 }}>
-          LA-Scope
-        </Typography>
-        <Typography sx={{ color: '#FFFFFF', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.3 }}>
-          Dataset Collector
-        </Typography>
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Toolbar variant="dense" />
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
       <List sx={{ px: 1, pt: 1, flexGrow: 1 }}>
         {NAV.map(item => {
