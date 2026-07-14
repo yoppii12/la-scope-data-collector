@@ -34,16 +34,20 @@ function FolderCard({ folder }: FolderCardProps) {
   const [open, setOpen] = useState(false)
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [preview, setPreview] = useState<FileItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null)
   const [toast, setToast] = useState<Toast>({ open: false, message: '', severity: 'success' })
 
   const loadFiles = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const data = await api.getFolder(folder.date) as FileItem[]
       setFiles(data)
-    } catch { /* ignore */ }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'ファイルの読み込みに失敗しました')
+    }
     setLoading(false)
   }, [folder.date])
 
@@ -113,6 +117,16 @@ function FolderCard({ folder }: FolderCardProps) {
         <Divider />
         {loading && <LinearProgress />}
         <Box sx={{ p: 1.5 }}>
+          {loadError && (
+            <Box sx={{ mb: 1.5, p: 1.5, backgroundColor: '#fff3f0', borderRadius: 1, border: '1px solid rgba(240,90,34,0.3)' }}>
+              <Typography sx={{ fontSize: '0.75rem', color: '#c84819', mb: 0.5 }}>
+                読み込みエラー: {loadError}
+              </Typography>
+              <Button size="small" onClick={loadFiles} sx={{ fontSize: '0.7rem', color: '#c84819', p: 0, minWidth: 0 }}>
+                再試行
+              </Button>
+            </Box>
+          )}
           <Grid container spacing={1}>
             {files.map(file => (
               <Grid item xs={6} sm={4} md={3} lg={2} key={file.name}>
@@ -261,6 +275,13 @@ export default function HistoryPage({ status }: Props) {
   useEffect(() => {
     api.getFiles().then(data => setFolders(data as DateFolder[])).finally(() => setLoading(false))
   }, [])
+
+  // フォルダ一覧を再取得（新規撮影で当日フォルダが生まれた場合に対応）
+  useEffect(() => {
+    if (!loading) {
+      api.getFiles().then(data => setFolders(data as DateFolder[])).catch(() => {})
+    }
+  }, [status?.total?.total])
 
   return (
     <Box sx={{ p: 2, maxWidth: 1200 }}>
