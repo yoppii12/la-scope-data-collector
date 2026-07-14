@@ -5,7 +5,7 @@ import {
   Paper, Snackbar, Tooltip, Typography,
 } from '@mui/material'
 import {
-  Close, Delete, Download, ExpandLess, ExpandMore,
+  Close, Delete, DeleteSweep, Download, ExpandLess, ExpandMore,
   FolderZip, Image as ImageIcon, TableChart, Videocam,
 } from '@mui/icons-material'
 import { api } from '../api/client'
@@ -28,15 +28,17 @@ type Toast = { open: boolean; message: string; severity: 'success' | 'error' }
 
 interface FolderCardProps {
   folder: DateFolder
+  onDelete: () => void
 }
 
-function FolderCard({ folder }: FolderCardProps) {
+function FolderCard({ folder, onDelete }: FolderCardProps) {
   const [open, setOpen] = useState(false)
   const [files, setFiles] = useState<FileItem[]>([])
   const [loading, setLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [preview, setPreview] = useState<FileItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null)
+  const [deleteFolderOpen, setDeleteFolderOpen] = useState(false)
   const [toast, setToast] = useState<Toast>({ open: false, message: '', severity: 'success' })
 
   const loadFiles = useCallback(async () => {
@@ -68,6 +70,17 @@ function FolderCard({ folder }: FolderCardProps) {
       setToast({ open: true, message: '削除に失敗しました', severity: 'error' })
     }
     setDeleteTarget(null)
+  }
+
+  const handleDeleteFolder = async () => {
+    try {
+      await api.deleteFolder(folder.date)
+      setDeleteFolderOpen(false)
+      onDelete()
+    } catch {
+      setDeleteFolderOpen(false)
+      setToast({ open: true, message: 'フォルダの削除に失敗しました', severity: 'error' })
+    }
   }
 
   return (
@@ -106,6 +119,11 @@ function FolderCard({ folder }: FolderCardProps) {
             <Tooltip title="CSVエクスポート">
               <IconButton size="small" onClick={e => { e.stopPropagation(); window.location.href = api.csvUrl(folder.date) }}>
                 <TableChart sx={{ fontSize: 18, color: '#171A31' }} />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="フォルダを削除">
+              <IconButton size="small" onClick={e => { e.stopPropagation(); setDeleteFolderOpen(true) }}>
+                <DeleteSweep sx={{ fontSize: 18, color: 'rgba(0,0,0,0.3)' }} />
               </IconButton>
             </Tooltip>
             {open ? <ExpandLess sx={{ color: 'text.secondary' }} /> : <ExpandMore sx={{ color: 'text.secondary' }} />}
@@ -240,7 +258,24 @@ function FolderCard({ folder }: FolderCardProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm */}
+      {/* Delete folder confirm */}
+      <Dialog open={deleteFolderOpen} onClose={() => setDeleteFolderOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ pb: 1, fontSize: '1rem' }}>フォルダの削除</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            <strong>{fmtDate(folder.date)}</strong> のすべてのファイル（{folder.photo_count}枚・{folder.video_count}本）を削除しますか？この操作は取り消せません。
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Button size="small" onClick={() => setDeleteFolderOpen(false)}>キャンセル</Button>
+            <Button size="small" variant="contained" onClick={handleDeleteFolder}
+              sx={{ backgroundColor: '#F05A22', '&:hover': { backgroundColor: '#c84819' } }}>
+              削除する
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete file confirm */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1, fontSize: '1rem' }}>ファイルの削除</DialogTitle>
         <DialogContent>
@@ -312,7 +347,13 @@ export default function HistoryPage({ status }: Props) {
           <Typography sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>撮影データがありません</Typography>
         </Paper>
       ) : (
-        folders.map(folder => <FolderCard key={folder.date} folder={folder} />)
+        folders.map(folder => (
+          <FolderCard
+            key={folder.date}
+            folder={folder}
+            onDelete={() => setFolders(prev => prev.filter(f => f.date !== folder.date))}
+          />
+        ))
       )}
     </Box>
   )

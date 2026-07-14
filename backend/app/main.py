@@ -222,6 +222,13 @@ async def get_file(date_str: str, filename: str):
     return FileResponse(str(path))
 
 
+@app.delete("/api/files/{date_str}")
+async def delete_folder(date_str: str):
+    if not storage.delete_folder(date_str):
+        raise HTTPException(404, "Not found")
+    return {"ok": True}
+
+
 @app.delete("/api/files/{date_str}/{filename}")
 async def delete_file(date_str: str, filename: str):
     if not storage.delete_file(f"{date_str}/{filename}"):

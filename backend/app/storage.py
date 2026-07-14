@@ -99,6 +99,15 @@ def delete_file(relative_path: str) -> bool:
     return True
 
 
+def delete_folder(date_str: str) -> bool:
+    folder = DATA_DIR / date_str
+    resolved = folder.resolve()
+    if not folder.is_dir() or not str(resolved).startswith(str(DATA_DIR.resolve())):
+        return False
+    shutil.rmtree(folder)
+    return True
+
+
 def create_zip(date_str: Optional[str] = None) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
