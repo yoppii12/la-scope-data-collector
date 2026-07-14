@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  Alert, Box, Button, Card, CardContent, Chip, Collapse, Dialog,
+  Alert, Box, Button, Card, CardContent, Checkbox, Chip, Collapse, Dialog,
   DialogContent, DialogTitle, Divider, Grid, IconButton, LinearProgress,
   Paper, Snackbar, Tooltip, Typography,
 } from '@mui/material'
@@ -39,6 +39,9 @@ function FolderCard({ folder, onDelete }: FolderCardProps) {
   const [preview, setPreview] = useState<FileItem | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<FileItem | null>(null)
   const [deleteFolderOpen, setDeleteFolderOpen] = useState(false)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [toast, setToast] = useState<Toast>({ open: false, message: '', severity: 'success' })
 
   const loadFiles = useCallback(async () => {
@@ -70,6 +73,35 @@ function FolderCard({ folder, onDelete }: FolderCardProps) {
       setToast({ open: true, message: '削除に失敗しました', severity: 'error' })
     }
     setDeleteTarget(null)
+  }
+
+  const toggleFileSelection = (name: string) => {
+    setSelectedFiles(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  const handleSelectAll = () => setSelectedFiles(new Set(files.map(f => f.name)))
+
+  const exitSelectionMode = () => {
+    setSelectionMode(false)
+    setSelectedFiles(new Set())
+  }
+
+  const handleBulkDelete = async () => {
+    try {
+      await Promise.all([...selectedFiles].map(name => api.deleteFile(folder.date, name)))
+      setToast({ open: true, message: `${selectedFiles.size}件削除しました`, severity: 'success' })
+      exitSelectionMode()
+      setBulkDeleteOpen(false)
+      loadFiles()
+    } catch {
+      setBulkDeleteOpen(false)
+      setToast({ open: true, message: '削除に失敗しました', severity: 'error' })
+    }
   }
 
   const handleDeleteFolder = async () => {
@@ -145,18 +177,59 @@ function FolderCard({ folder, onDelete }: FolderCardProps) {
               </Button>
             </Box>
           )}
+          {files.length > 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+              {selectionMode ? (
+                <>
+                  <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                    {selectedFiles.size}件選択中
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    <Button size="small" onClick={handleSelectAll} sx={{ fontSize: '0.7rem', py: 0.25 }}>全選択</Button>
+                    <Button
+                      size="small" variant="contained" disabled={selectedFiles.size === 0}
+                      onClick={() => setBulkDeleteOpen(true)}
+                      sx={{ fontSize: '0.7rem', py: 0.25, backgroundColor: '#F05A22', '&:hover': { backgroundColor: '#c84819' } }}
+                    >
+                      削除する
+                    </Button>
+                    <Button size="small" onClick={exitSelectionMode} sx={{ fontSize: '0.7rem', py: 0.25 }}>キャンセル</Button>
+                  </Box>
+                </>
+              ) : (
+                <Box sx={{ ml: 'auto' }}>
+                  <Button size="small" onClick={() => setSelectionMode(true)} sx={{ fontSize: '0.7rem', py: 0.25, color: '#171A31' }}>選択</Button>
+                </Box>
+              )}
+            </Box>
+          )}
           <Grid container spacing={1}>
             {files.map(file => (
               <Grid item xs={6} sm={4} md={3} lg={2} key={file.name}>
                 <Paper
                   elevation={0}
                   sx={{
-                    border: '1px solid rgba(0,0,0,0.08)', borderRadius: 1.5, overflow: 'hidden',
+                    position: 'relative',
+                    border: selectionMode && selectedFiles.has(file.name)
+                      ? '2px solid #F05A22'
+                      : '1px solid rgba(0,0,0,0.08)',
+                    borderRadius: 1.5, overflow: 'hidden',
                     cursor: 'pointer', transition: 'border-color 0.15s',
-                    '&:hover': { borderColor: '#171A31' },
+                    '&:hover': { borderColor: selectionMode ? undefined : '#171A31' },
                   }}
-                  onClick={() => setPreview(file)}
+                  onClick={() => selectionMode ? toggleFileSelection(file.name) : setPreview(file)}
                 >
+                  {selectionMode && (
+                    <Box sx={{ position: 'absolute', top: 4, left: 4, zIndex: 1 }}>
+                      <Checkbox
+                        size="small"
+                        checked={selectedFiles.has(file.name)}
+                        onChange={() => toggleFileSelection(file.name)}
+                        onClick={e => e.stopPropagation()}
+                        sx={{ p: 0, color: 'rgba(255,255,255,0.9)', '&.Mui-checked': { color: '#F05A22' } }}
+                      />
+                    </Box>
+                  )}
                   <Box sx={{ aspectRatio: '4/3', backgroundColor: '#06071a', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {file.type === 'image' ? (
                       <img
@@ -173,12 +246,14 @@ function FolderCard({ folder, onDelete }: FolderCardProps) {
                     </Typography>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.25 }}>
                       <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary' }}>{fmtSize(file.size)}</Typography>
-                      <IconButton
-                        size="small" sx={{ p: 0.25 }}
-                        onClick={e => { e.stopPropagation(); setDeleteTarget(file) }}
-                      >
-                        <Delete sx={{ fontSize: 13, color: 'rgba(0,0,0,0.25)' }} />
-                      </IconButton>
+                      {!selectionMode && (
+                        <IconButton
+                          size="small" sx={{ p: 0.25 }}
+                          onClick={e => { e.stopPropagation(); setDeleteTarget(file) }}
+                        >
+                          <Delete sx={{ fontSize: 13, color: 'rgba(0,0,0,0.25)' }} />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                 </Paper>
@@ -255,6 +330,23 @@ function FolderCard({ folder, onDelete }: FolderCardProps) {
               )}
             </Box>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk delete confirm */}
+      <Dialog open={bulkDeleteOpen} onClose={() => setBulkDeleteOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ pb: 1, fontSize: '1rem' }}>まとめて削除</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            選択した <strong>{selectedFiles.size}件</strong> のファイルを削除しますか？この操作は取り消せません。
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            <Button size="small" onClick={() => setBulkDeleteOpen(false)}>キャンセル</Button>
+            <Button size="small" variant="contained" onClick={handleBulkDelete}
+              sx={{ backgroundColor: '#F05A22', '&:hover': { backgroundColor: '#c84819' } }}>
+              削除する
+            </Button>
+          </Box>
         </DialogContent>
       </Dialog>
 
