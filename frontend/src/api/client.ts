@@ -33,6 +33,9 @@ export const api = {
   updateSettings: (settings: Partial<unknown>) =>
     request<unknown>('/settings', { method: 'PUT', ...json(settings) }),
 
+  deleteFolder: (date: string) =>
+    request<{ ok: boolean }>(`/files/${date}`, { method: 'DELETE' }),
+
   deleteFile: (date: string, filename: string) =>
     request<{ ok: boolean }>(`/files/${date}/${filename}`, { method: 'DELETE' }),
 
