@@ -109,7 +109,7 @@ async def start_recording(req: CaptureRequest):
         raise HTTPException(400, "Already recording")
     date_str, fname = storage.make_filename(req.sample_id, "mp4")
     folder = storage.ensure_date_dir(date_str)
-    ok = camera.start_recording(str(folder / fname))
+    ok = await asyncio.to_thread(camera.start_recording, str(folder / fname))
     if not ok:
         raise HTTPException(500, "Failed to start recording")
     await _broadcast()
@@ -120,7 +120,7 @@ async def start_recording(req: CaptureRequest):
 async def stop_recording():
     if not camera.is_recording:
         raise HTTPException(400, "Not recording")
-    ok = camera.stop_recording()
+    ok = await asyncio.to_thread(camera.stop_recording)
     if not ok:
         raise HTTPException(500, "Failed to stop recording")
     await _broadcast()
@@ -290,7 +290,7 @@ async def update_settings(update: SettingsUpdate):
     if update.camera:
         settings["camera"].update(update.camera)
         if hasattr(camera, "apply_settings"):
-            camera.apply_settings(settings["camera"])
+            await asyncio.to_thread(camera.apply_settings, settings["camera"])
     if update.interval:
         settings["interval"].update(update.interval)
     if update.annotation:
