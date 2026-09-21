@@ -69,8 +69,11 @@ def get_files_in_folder(date_str: str) -> list[dict]:
         meta: dict = {}
         meta_path = f.with_suffix(".json")
         if meta_path.exists():
-            with open(meta_path) as fp:
-                meta = json.load(fp)
+            try:
+                with open(meta_path) as fp:
+                    meta = json.load(fp)
+            except (json.JSONDecodeError, OSError):
+                pass
         files.append({
             "name": f.name,
             "type": "image" if f.suffix.lower() == ".jpg" else "video",

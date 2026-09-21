@@ -6,8 +6,8 @@ from typing import Optional
 
 try:
     from picamera2 import Picamera2
-    from picamera2.encoders import H264Encoder
-    from picamera2.outputs import FfmpegOutput
+    from picamera2.encoders import H264Encoder, MJPEGEncoder
+    from picamera2.outputs import FfmpegOutput, FileOutput
     PICAMERA2_AVAILABLE = True
 except ImportError:
     PICAMERA2_AVAILABLE = False
@@ -116,8 +116,46 @@ class MockCamera:
         self.settings.update(settings)
 
 
+class _FrameSink(io.BufferedIOBase):
+    """File-like object handed to FileOutput; just remembers the latest JPEG frame."""
+
+    def __init__(self):
+        super().__init__()
+        self._lock = threading.Lock()
+        self._frame: Optional[bytes] = None
+
+    def write(self, buf):
+        with self._lock:
+            self._frame = bytes(buf)
+        return len(buf)
+
+    def get_frame(self) -> Optional[bytes]:
+        with self._lock:
+            return self._frame
+
+
 class RPiCamera:
-    """Raspberry Pi HQ Camera via picamera2."""
+    """Raspberry Pi HQ Camera via picamera2.
+
+    Live view and recording run as two fully independent encoders on two
+    different streams, started/stopped separately via start_encoder /
+    stop_encoder:
+      - an MJPEGEncoder stays attached to the "lores" stream for the entire
+        lifetime of the camera, continuously feeding `_sink` for live view.
+      - an H264Encoder is attached to / detached from the "main" stream only
+        for the duration of an actual recording.
+
+    Earlier versions instead polled a single shared stream with a blocking
+    capture_file() call from a Python thread while toggling the recording
+    encoder on that same stream. That contention wedged libcamera itself —
+    confirmed on-device by systemd having to SIGKILL the service (including
+    its CameraManager child processes) because it stopped responding after
+    a record start/stop cycle. Giving each purpose its own encoder and
+    stream means starting or stopping a recording never touches the live
+    view's pipeline at all.
+    """
+
+    LIVE_VIEW_SIZE = (1280, 720)
 
     def __init__(self):
         self.picam: Optional[Picamera2] = None
@@ -128,72 +166,66 @@ class RPiCamera:
             "exposure": "auto",
             "white_balance": "auto",
         }
-        self._frame: Optional[bytes] = None
-        self._lock = threading.Lock()
+        self._sink = _FrameSink()
         self._cam_lock = threading.Lock()
-        self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._mjpeg_encoder: Optional[MJPEGEncoder] = None
+        self._h264_encoder: Optional[H264Encoder] = None
 
     def get_supported_resolutions(self) -> list[str]:
         return RPI_RESOLUTIONS
+
+    def _build_config(self, w: int, h: int):
+        lw, lh = self.LIVE_VIEW_SIZE
+        lw, lh = min(lw, w), min(lh, h)
+        return self.picam.create_video_configuration(
+            main={"size": (w, h), "format": "RGB888"},
+            lores={"size": (lw, lh), "format": "YUV420"},
+            encode="lores",
+        )
+
+    def _start_live_view(self):
+        self._mjpeg_encoder = MJPEGEncoder()
+        self.picam.start_encoder(self._mjpeg_encoder, FileOutput(self._sink), name="lores")
 
     def start(self, initial_settings: dict = None):
         if initial_settings:
             self.settings.update(initial_settings)
         w, h = _parse_resolution(self.settings.get("resolution", "1920x1080"))
         self.picam = Picamera2()
-        config = self.picam.create_preview_configuration(
-            main={"size": (w, h), "format": "RGB888"},
-        )
+        config = self._build_config(w, h)
         self.picam.configure(config)
-        self.picam.start()
         fps = int(self.settings.get("framerate", 30))
         frame_duration = int(1_000_000 / fps)
         self.picam.set_controls({"FrameDurationLimits": (frame_duration, frame_duration)})
+        self.picam.start()
         time.sleep(2)
-        self._running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
+        self._start_live_view()
 
     def stop(self):
-        self._running = False
         if self.picam:
+            if self._mjpeg_encoder:
+                self.picam.stop_encoder(self._mjpeg_encoder)
+                self._mjpeg_encoder = None
             self.picam.stop()
             self.picam.close()
 
-    def _loop(self):
-        while self._running:
-            try:
-                with self._cam_lock:
-                    buf = io.BytesIO()
-                    self.picam.capture_file(buf, format="jpeg")
-                with self._lock:
-                    self._frame = buf.getvalue()
-            except Exception:
-                pass
-            time.sleep(1 / int(self.settings.get("framerate", 30)))
-
     def get_frame(self) -> Optional[bytes]:
-        with self._lock:
-            return self._frame
+        return self._sink.get_frame()
 
     def capture_image(self, filepath: str) -> bool:
         try:
-            with self._lock:
-                frame = self._frame
-            if not frame:
-                return False
-            with open(filepath, "wb") as f:
-                f.write(frame)
+            with self._cam_lock:
+                self.picam.capture_file(filepath, format="jpeg", name="main")
             return True
         except Exception:
             return False
 
     def start_recording(self, filepath: str) -> bool:
         try:
-            encoder = H264Encoder()
-            output = FfmpegOutput(filepath)
-            self.picam.start_recording(encoder, output)
+            with self._cam_lock:
+                self._h264_encoder = H264Encoder()
+                output = FfmpegOutput(filepath)
+                self.picam.start_encoder(self._h264_encoder, output, name="main")
             self.is_recording = True
             return True
         except Exception:
@@ -201,7 +233,10 @@ class RPiCamera:
 
     def stop_recording(self) -> bool:
         try:
-            self.picam.stop_recording()
+            with self._cam_lock:
+                if self._h264_encoder:
+                    self.picam.stop_encoder(self._h264_encoder)
+                    self._h264_encoder = None
             self.is_recording = False
             return True
         except Exception:
@@ -212,20 +247,16 @@ class RPiCamera:
             return
         new_res = settings.get("resolution", self.settings.get("resolution"))
         if new_res and new_res != self.settings.get("resolution"):
-            self._running = False
-            if self._thread:
-                self._thread.join(timeout=2)
+            if self._mjpeg_encoder:
+                self.picam.stop_encoder(self._mjpeg_encoder)
+                self._mjpeg_encoder = None
             self.picam.stop()
             w, h = _parse_resolution(new_res)
-            config = self.picam.create_preview_configuration(
-                main={"size": (w, h), "format": "RGB888"},
-            )
+            config = self._build_config(w, h)
             self.picam.configure(config)
             self.picam.start()
             time.sleep(2)
-            self._running = True
-            self._thread = threading.Thread(target=self._loop, daemon=True)
-            self._thread.start()
+            self._start_live_view()
         controls = {}
         if settings.get("exposure") == "auto":
             controls["AeEnable"] = True
